@@ -4,8 +4,10 @@ from gearman.command_handler import GearmanCommandHandler
 from gearman.errors import InvalidWorkerState
 from gearman.protocol import GEARMAN_COMMAND_PRE_SLEEP, GEARMAN_COMMAND_RESET_ABILITIES, GEARMAN_COMMAND_CAN_DO, GEARMAN_COMMAND_SET_CLIENT_ID, GEARMAN_COMMAND_GRAB_JOB_UNIQ, \
     GEARMAN_COMMAND_WORK_STATUS, GEARMAN_COMMAND_WORK_COMPLETE, GEARMAN_COMMAND_WORK_FAIL, GEARMAN_COMMAND_WORK_EXCEPTION, GEARMAN_COMMAND_WORK_WARNING, GEARMAN_COMMAND_WORK_DATA
+import global_values
 
 gearman_logger = logging.getLogger(__name__)
+
 
 class GearmanWorkerCommandHandler(GearmanCommandHandler):
     """GearmanWorker state machine on a per connection basis
@@ -92,6 +94,19 @@ class GearmanWorkerCommandHandler(GearmanCommandHandler):
         if not self.connection_manager.set_job_lock(self, lock=False):
             raise InvalidWorkerState("Unable to release job lock for %r" % self)
 
+        responsed = set()
+        if global_values.RESPONSE_NOOP_CONNECTION:
+            # for conn in global_values.RESPONSE_NOOP_CONNECTION:
+            #     conn.send_command(GEARMAN_COMMAND_GRAB_JOB_UNIQ, {})
+            for wh in global_values.RESPONSE_NOOP_CONNECTION:
+                if wh.connection_manager.check_job_lock(wh):
+                    continue
+                if not wh.connection_manager.set_job_lock(wh, lock=True):
+                    continue
+                wh.send_command(GEARMAN_COMMAND_GRAB_JOB_UNIQ)
+                responsed.add(wh)
+            global_values.RESPONSE_NOOP_CONNECTION -= responsed
+
         return True
 
     def recv_noop(self):
@@ -101,12 +116,17 @@ class GearmanWorkerCommandHandler(GearmanCommandHandler):
         SLEEP -> AWAKE -> AWAITING_JOB :: Transition if we can acquire the worker job lock
         SLEEP -> AWAKE -> SLEEP        :: Transition if we can NOT acquire a worker job lock
         """
+        # while worker not response noop, record connecion when worker release the job lock send the grab_job message
         if self._check_job_lock():
-            pass
+            # global_values.RESPONSE_NOOP_CONNECTION.add(self.connection_manager.handler_to_connection_map[self])
+            global_values.RESPONSE_NOOP_CONNECTION.add(self)
+            # pass
         elif self._acquire_job_lock():
             self._grab_job()
         else:
-            self._sleep()
+            # global_values.RESPONSE_NOOP_CONNECTION.add(self.connection_manager.handler_to_connection_map[self])
+            global_values.RESPONSE_NOOP_CONNECTION.add(self)
+            # self._sleep()
 
         return True
 
@@ -144,4 +164,4 @@ class GearmanWorkerCommandHandler(GearmanCommandHandler):
 
     def recv_job_assign(self, job_handle, task, data):
         """JOB_ASSIGN and JOB_ASSIGN_UNIQ are essentially the same"""
-        return self.recv_job_assign_uniq(job_handle=job_handle, task=task, unique=None, data=data)
+        return self.recv_job_assign(job_handle=job_handle, task=task, unique=None, data=data)
