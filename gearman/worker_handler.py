@@ -96,8 +96,6 @@ class GearmanWorkerCommandHandler(GearmanCommandHandler):
 
         responsed = set()
         if global_values.RESPONSE_NOOP_CONNECTION:
-            # for conn in global_values.RESPONSE_NOOP_CONNECTION:
-            #     conn.send_command(GEARMAN_COMMAND_GRAB_JOB_UNIQ, {})
             for wh in global_values.RESPONSE_NOOP_CONNECTION:
                 if wh.connection_manager.check_job_lock(wh):
                     continue
@@ -118,13 +116,11 @@ class GearmanWorkerCommandHandler(GearmanCommandHandler):
         """
         # while worker not response noop, record connecion when worker release the job lock send the grab_job message
         if self._check_job_lock():
-            # global_values.RESPONSE_NOOP_CONNECTION.add(self.connection_manager.handler_to_connection_map[self])
             global_values.RESPONSE_NOOP_CONNECTION.add(self)
             # pass
         elif self._acquire_job_lock():
             self._grab_job()
         else:
-            # global_values.RESPONSE_NOOP_CONNECTION.add(self.connection_manager.handler_to_connection_map[self])
             global_values.RESPONSE_NOOP_CONNECTION.add(self)
             # self._sleep()
 
