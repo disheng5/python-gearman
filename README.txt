@@ -15,6 +15,7 @@ Installation
 
 Links
 =====
+* 2.1.x source <https://github.com/disheng5/python-gearman/>
 * 2.x source <http://github.com/Yelp/python-gearman/>
 * 2.x documentation <http://packages.python.org/gearman/>
 
